@@ -9,7 +9,7 @@ type Vector = {
 export class Curio extends DeviceController {
 	private left: number = 0;
 	private right: number = 0;
-	private speed: number = 700;
+	private speed: number = 600;
 
 	constructor() {
 		super();
@@ -24,7 +24,7 @@ export class Curio extends DeviceController {
 	}
 
 	public setParameters(x: number, y: number, distance: number) {
-		this.speed = Math.round(distance * 7);
+		this.speed = Math.round(distance * 6);
 
 		const angle = this.calculateAngle({ x, y });
 		const tempValue = (2 * angle) / 90;

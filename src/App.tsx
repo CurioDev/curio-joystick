@@ -5,7 +5,6 @@ import { useEffect, useState } from "react";
 import { Joystick } from "react-joystick-component";
 import { Box, Button, Container, Stack } from "@mui/material";
 import { Curio } from "./services/curioServices";
-
 import { joinRoom } from "trystero";
 import { DataType, PeerData } from "./services/types";
 
