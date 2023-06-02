@@ -1,175 +1,80 @@
-import React from "react";
-import logo from "./logo.svg";
 import "./App.css";
-import { useEffect, useState } from "react";
-import { Joystick } from "react-joystick-component";
-import { Box, Button, Container, Stack } from "@mui/material";
-import { Curio } from "./services/curioServices";
-import { joinRoom } from "trystero";
-import { DataType, PeerData } from "./services/types";
+import { useState } from "react";
+import { Button, Stack } from "@mui/material";
+import { PeerData } from "./services/types";
+import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+import JoystickController from "./components/Joystick";
+import Peer, { DataConnection } from "peerjs";
 
-const queryParams = new URLSearchParams(window.location.search);
-const roomID = queryParams.get("roomID") ?? undefined;
+function Home() {
+	return (
+		<div className="App">
+			<JoystickController sendMessage={undefined} />
+		</div>
+	);
+}
 
-const sendMessage = roomID
-	? joinRoom({ appId: "Curio-Joystick" }, roomID).makeAction("message")[0]
-	: undefined;
-// console.log(sendMessage, roomID, queryParams);
+function HomePeer() {
+	const { roomID } = useParams();
+	const peer = new Peer(); // Create PeerJS instance
+	const [connection, setConnection] = useState<DataConnection>(); // Store the connection
+	const [isPeerConnected, setIsPeerConnected] = useState<boolean>(false);
 
-function App() {
-	const [isConnected, setIsConnected] = useState<boolean>(false);
-	const [isMoving, setIsMoving] = useState<boolean>(false);
+	const peerConnection = () => {
+		if (roomID) {
+			console.log(roomID);
 
-	const curio = new Curio();
-
-	const handleConnect = () => {
-		if (sendMessage) {
-			const connectData: PeerData = {
-				type: DataType.CURIO_CONNECT,
-				data: { isConnected: isConnected },
-			};
-			sendMessage(connectData);
-			setIsConnected(!isConnected);
-		} else {
-			if (!isConnected) {
-				curio.connect(() => {
-					console.log("Connected");
-					setIsConnected(true);
-				});
-			} else {
-				curio.disconnect(() => {
-					console.log("Disconnected");
-					setIsConnected(false);
-				});
-			}
+			const conn = peer.connect(roomID);
+			setConnection(conn);
+			console.log(conn);
+			setIsPeerConnected(true);
 		}
 	};
 
-	const handleMove = (x: number, y: number, distance: number) => {
-		if (sendMessage) {
-			const moveData: PeerData = {
-				type: DataType.CURIO_MOVE_VECTOR,
-				data: { x: x, y: y, speed: distance },
-			};
-			sendMessage(moveData);
+	const sendMessage = (data: PeerData) => {
+		if (connection) {
+			console.log(data);
 
-			if (!isMoving) {
-				const moveCommand: PeerData = {
-					type: DataType.CURIO_MOVE,
-					data: { message: "move" },
-				};
-				sendMessage(moveCommand);
-			}
-		} else {
-			curio.setParameters(x, y, distance);
-			if (!isMoving) {
-				curio.move();
-			}
-		}
-
-		setIsMoving(true);
-	};
-
-	const handleStart = () => {
-		//setIsMoving(true);
-	};
-
-	const handleStop = () => {
-		setIsMoving(false);
-
-		if (sendMessage) {
-			const moveData: PeerData = {
-				type: DataType.CURIO_MOVE_VECTOR,
-				data: { x: 0, y: 0, speed: 0 },
-			};
-			sendMessage(moveData);
-		} else {
-			curio.setParameters(0, 0, 0);
+			connection.send(data); // Send the message to the receiver
 		}
 	};
-
-	useEffect(() => {
-		let intervalId: NodeJS.Timer;
-
-		if (isMoving) {
-			if (sendMessage) {
-				const moveCommand: PeerData = {
-					type: DataType.CURIO_MOVE,
-					data: { message: "move" },
-				};
-				sendMessage(moveCommand);
-			} else {
-				curio.move();
-			}
-			intervalId = setInterval(() => {
-				if (sendMessage) {
-					const moveCommand: PeerData = {
-						type: DataType.CURIO_MOVE,
-						data: { message: "move" },
-					};
-					sendMessage(moveCommand);
-				} else {
-					curio.move();
-				}
-			}, 1000);
-		}
-
-		return () => {
-			clearInterval(intervalId);
-			if (isConnected) {
-				if (sendMessage) {
-					const stopCommand: PeerData = {
-						type: DataType.CURIO_MOVE,
-						data: { message: "stop" },
-					};
-					sendMessage(stopCommand);
-				} else {
-					curio.stop();
-				}
-			}
-		};
-	}, [isMoving]);
 
 	return (
-		<Stack
-			direction="column"
-			justifyContent="center"
-			alignItems="center"
-			spacing={20}
-		>
-			<Button
-				onClick={() => {
-					handleConnect();
-				}}
-				style={
-					isConnected
-						? {
-								backgroundColor: "rgba(171, 61, 89, 255)",
-						  }
-						: {
-								backgroundColor: "rgba(61, 89, 171, 255)",
-						  }
-				}
-				sx={{ mt: 10 }}
-				variant="contained"
-			>
-				{isConnected ? "DISCONNECT" : "CONNECT TO CURIO"}
-			</Button>
-			{isConnected && (
-				<Joystick
-					move={(e) => {
-						handleMove(e.x ?? 0, e.y ?? 0, e.distance ?? 0);
-					}}
-					start={() => {
-						handleStart();
-					}}
-					stop={() => {
-						handleStop();
-					}}
-					throttle={10}
-				/>
+		<div className="App">
+			{isPeerConnected ? (
+				<JoystickController sendMessage={sendMessage} />
+			) : (
+				<Stack
+					direction="column"
+					justifyContent="center"
+					alignItems="center"
+				>
+					<Button
+						onClick={() => {
+							peerConnection();
+						}}
+						style={{
+							backgroundColor: "green",
+						}}
+						sx={{ mt: 10 }}
+						variant="contained"
+					>
+						CONNECT TO THE HOST DEVICE
+					</Button>
+				</Stack>
 			)}
-		</Stack>
+		</div>
+	);
+}
+
+function App() {
+	return (
+		<BrowserRouter>
+			<Routes>
+				<Route path="/" element={<Home />} />
+				<Route path="/:roomID" element={<HomePeer />} />
+			</Routes>
+		</BrowserRouter>
 	);
 }
 
